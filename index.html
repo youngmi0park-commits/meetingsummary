@@ -17,16 +17,30 @@
       </div>
       <div class="settings">
         <div class="input-group">
-          <label for="apiKey">Ollama Server</label>
-          <input type="text" id="apiKey" value="http://localhost:11434" placeholder="http://localhost:11434">
+          <label for="apiKey">AI 서비스 선택</label>
+          <select id="aiProvider">
+            <option value="ollama">Ollama (로컬 AI - 무료/무제한)</option>
+            <option value="deepseek">DeepSeek (클라우드 - 전달받은 키 사용)</option>
+          </select>
+        </div>
+        <div class="input-group" id="urlGroup">
+          <label for="apiUrl">Server / API Key</label>
+          <input type="text" id="apiUrl" value="http://localhost:11434">
         </div>
         <div class="input-group">
-          <label for="promptType">Ollama Model</label>
+          <label for="promptType">Model</label>
           <select id="promptType">
-            <option value="llama3">Llama 3</option>
-            <option value="gemma2">Gemma 2</option>
-            <option value="mistral">Mistral</option>
-            <option value="phi3">Phi 3</option>
+            <!-- Ollama용 모델들 -->
+            <optgroup label="Ollama Models" id="ollamaModels">
+              <option value="llama3">Llama 3</option>
+              <option value="gemma2">Gemma 2</option>
+              <option value="mistral">Mistral</option>
+            </optgroup>
+            <!-- DeepSeek용 모델들 -->
+            <optgroup label="DeepSeek Models" id="deepseekModels" style="display:none;">
+              <option value="deepseek-chat">DeepSeek Chat</option>
+              <option value="deepseek-reasoner">DeepSeek Reasoner</option>
+            </optgroup>
           </select>
         </div>
       </div>

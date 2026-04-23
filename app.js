@@ -6,7 +6,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnObsidian = document.getElementById("btnObsidian");
   const btnEmail = document.getElementById("btnEmail");
 
-  const apiKeyInput = document.getElementById("apiKey");
+  const aiProvider = document.getElementById("aiProvider");
+  const apiUrlInput = document.getElementById("apiUrl");
+  const ollamaModels = document.getElementById("ollamaModels");
+  const deepseekModels = document.getElementById("deepseekModels");
+  
   const promptType = document.getElementById("promptType");
   const statusEl = document.getElementById("status");
   const transcriptArea = document.getElementById("transcript");
@@ -132,12 +136,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // AI 선택에 따른 UI 변경
+  aiProvider.addEventListener("change", () => {
+    if(aiProvider.value === "ollama") {
+      apiUrlInput.value = "http://localhost:11434";
+      ollamaModels.style.display = "";
+      deepseekModels.style.display = "none";
+    } else {
+      apiUrlInput.value = "4303dcdfb7c04d54829c32d876609a9f.1eYtBkd3bgIfHS4mK62pR6D0"; // DeepSeek Key
+      ollamaModels.style.display = "none";
+      deepseekModels.style.display = "";
+    }
+  });
+
   // AI Summarization
   btnSummarize.addEventListener("click", async () => {
-    const baseUrl = apiKeyInput.value.trim();
-    if(!baseUrl) {
-      alert("Ollama 서버 주소를 입력해주세요. (기본: http://localhost:11434)");
-      apiKeyInput.focus();
+    const config = apiUrlInput.value.trim();
+    if(!config) {
+      alert("설정(서버 주소 혹은 API 키)을 확인해주세요.");
+      apiUrlInput.focus();
       return;
     }
 
@@ -148,7 +165,12 @@ document.addEventListener("DOMContentLoaded", () => {
     btnSummarize.disabled = true;
 
     try {
-      const response = await callOllamaAPI(baseUrl, textToSummarize, promptType.value);
+      let response;
+      if(aiProvider.value === "ollama") {
+        response = await callOllamaAPI(config, textToSummarize, promptType.value);
+      } else {
+        response = await callDeepSeekAPI(config, textToSummarize, promptType.value);
+      }
       
       // Parse Ollama's response
       const summaryMatch = response.match(/<summary>([\s\S]*?)<\/summary>/);
@@ -207,6 +229,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const data = await res.json();
     return data.response;
+  }
+
+  async function callDeepSeekAPI(apiKey, text, model) {
+    // DeepSeek API 규사 (OpenAI 호환)
+    const apiUrl = "https://api.deepseek.com/chat/completions";
+    
+    const requestBody = {
+      model: model,
+      messages: [
+        { role: "system", content: "당신은 전문적인 회의록 요약 AI 비서입니다. 주어진 회의 녹음본을 분석하여 <summary>, <schedule>, <action_items> 태그 형식으로 요약해주세요." },
+        { role: "user", content: `다음 회의록을 요약해주세요:\n\n${text}` }
+      ],
+      stream: false
+    };
+
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(`DeepSeek API 에러: ${err.error?.message || res.statusText}`);
+    }
+
+    const data = await res.json();
+    return data.choices[0].message.content;
   }
 
   // Save to Obsidian (전문 + 요약 모두) - user requested User Vault: 'meeting summary'
