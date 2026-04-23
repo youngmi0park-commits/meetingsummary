@@ -32,12 +32,12 @@ document.addEventListener("DOMContentLoaded", () => {
     actionItems: ""
   };
 
-  // Load API Key
-  const savedKey = localStorage.getItem("gemini_api_key");
-  if(savedKey) apiKeyInput.value = savedKey;
+  // Load Ollama Server URL
+  const savedUrl = localStorage.getItem("ollama_url");
+  if(savedUrl) apiKeyInput.value = savedUrl;
 
   apiKeyInput.addEventListener("change", (e) => {
-    localStorage.setItem("gemini_api_key", e.target.value);
+    localStorage.setItem("ollama_url", e.target.value);
   });
 
   // Web Speech API Setup
@@ -134,9 +134,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // AI Summarization
   btnSummarize.addEventListener("click", async () => {
-    const key = apiKeyInput.value.trim();
-    if(!key) {
-      alert("Gemini API 키를 먼저 입력해주세요.");
+    const baseUrl = apiKeyInput.value.trim();
+    if(!baseUrl) {
+      alert("Ollama 서버 주소를 입력해주세요. (기본: http://localhost:11434)");
       apiKeyInput.focus();
       return;
     }
@@ -148,15 +148,15 @@ document.addEventListener("DOMContentLoaded", () => {
     btnSummarize.disabled = true;
 
     try {
-      const response = await callGeminiAPI(key, textToSummarize, promptType.value);
+      const response = await callOllamaAPI(baseUrl, textToSummarize, promptType.value);
       
-      // Parse Gemini's response
+      // Parse Ollama's response
       const summaryMatch = response.match(/<summary>([\s\S]*?)<\/summary>/);
       const scheduleMatch = response.match(/<schedule>([\s\S]*?)<\/schedule>/);
       const actionMatch = response.match(/<action_items>([\s\S]*?)<\/action_items>/);
 
       if (!summaryMatch) {
-        console.error("파싱 실패. Gemini 응답 원문:", response);
+        console.error("파싱 실패. Ollama 응답 원문:", response);
         meetingData.summary = response; // raw 응답이라도 보여주기
       } else {
         meetingData.summary = summaryMatch[1].trim();
@@ -184,49 +184,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  async function callGeminiAPI(apiKey, text, model) {
-    // 사용자가 선택한 모델을 사용하며, 없을 경우 flash를 기본값으로 합니다.
-    const finalModel = model || "gemini-1.5-flash"; 
+  async function callOllamaAPI(baseUrl, text, model) {
+    const apiUrl = `${baseUrl}/api/generate`;
     
-    // ✅ 최신 모델(2.0 등)의 모든 기능을 지원하는 v1beta 엔드포인트를 사용합니다.
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${finalModel}:generateContent?key=${apiKey}`;
+    const requestBody = {
+      model: model,
+      prompt: `당신은 전문적인 회의록 요약 AI 비서입니다. 주어진 회의 녹음본을 분석하여 <summary>, <schedule>, <action_items> 태그 형식으로 요약해주세요.\n\n회의록:\n${text}`,
+      stream: false
+    };
 
-    const systemPrompt = `당신은 LG전자의 전문적인 회의록 요약 AI 비서입니다.
-주어진 회의 녹음본(STT)을 분석하여 다음 3가지 항목을 XML 태그로 감싸서 반환해주세요.
-<summary>전체 회의 내용 핵심 요약 (3-4줄 이내)</summary>
-<schedule>회의에서 언급된 핵심 일정 및 마감일 정리</schedule>
-<action_items>회의 결과에 따른 할 일 목록 (담당자가 있다면 명시)</action_items>`;
-
-    // ✅ Gemini API 요청 형식 (사용자 제안 generationConfig 반영)
-    const res = await fetch(endpoint, {
+    const res = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: systemPrompt + "\n\n다음 회의록을 요약해주세요:\n\n" + text }
-            ]
-          }
-        ],
-        generationConfig: {
-          maxOutputTokens: 1500,
-          temperature: 0.3
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error?.message || "Unknown error occurred.");
+      throw new Error(`Ollama 서버 연결 실패: ${res.statusText}. Ollama가 실행 중인지, 혹은 CORS 설정이 되어 있는지 확인하세요.`);
     }
 
     const data = await res.json();
-    
-    // ✅ Gemini 응답 파싱
-    return data.candidates[0].content.parts[0].text;
+    return data.response;
   }
 
   // Save to Obsidian (전문 + 요약 모두) - user requested User Vault: 'meeting summary'
