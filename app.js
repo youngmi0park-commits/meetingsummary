@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   async function callGeminiAPI(apiKey, text, model) {
-    const validModel = model || "gemini-1.5-flash"; 
+    const validModel = model || "gemini-pro"; 
     const systemPrompt = `당신은 전문적인 회의록 요약 AI 비서입니다. 주어진 회의 녹음본을 분석하여 <summary>, <schedule>, <action_items> 태그 형식으로 요약해주세요.`;
     
     // 호환성이 가장 좋은 v1beta 버전을 사용합니다.
