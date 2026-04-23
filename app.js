@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   async function callGeminiAPI(apiKey, text, model) {
-    const validModel = model || "gemini-1.5-flash"; 
+    const validModel = model || "gemini-1.5-flash-latest"; 
     const systemPrompt = `
 당신은 LG전자의 전문적인 회의록 요약 AI 비서입니다.
 주어진 회의 녹음본(STT)을 분석하여 다음 3가지 항목을 XML 태그로 감싸서 반환해주세요. 반드시 정해진 태그만 사용해야 합니다.
