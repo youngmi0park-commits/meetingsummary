@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   async function callGeminiAPI(apiKey, text, model) {
-    const validModel = model || "gemini-1.5-flash-latest"; 
+    const validModel = model || "gemini-1.5-flash"; 
     const systemPrompt = `
 당신은 LG전자의 전문적인 회의록 요약 AI 비서입니다.
 주어진 회의 녹음본(STT)을 분석하여 다음 3가지 항목을 XML 태그로 감싸서 반환해주세요. 반드시 정해진 태그만 사용해야 합니다.
@@ -192,8 +192,8 @@ document.addEventListener("DOMContentLoaded", () => {
 <action_items>회의 결과에 따른 할 일 목록 (담당자가 있다면 명시)</action_items>
 `;
     
-    // Gemini API는 기본적으로 브라우저 CORS를 허용하므로 직접 호출이 가능합니다.
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${validModel}:generateContent?key=${apiKey}`;
+    // Gemini API v1 정식 버전을 사용합니다.
+    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${validModel}:generateContent?key=${apiKey}`;
     
     const res = await fetch(apiUrl, {
       method: "POST",
