@@ -8,8 +8,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const aiProvider = document.getElementById("aiProvider");
   const apiUrlInput = document.getElementById("apiUrl");
+  const geminiModels = document.getElementById("geminiModels");
   const ollamaModels = document.getElementById("ollamaModels");
-  const deepseekModels = document.getElementById("deepseekModels");
   
   const promptType = document.getElementById("promptType");
   const statusEl = document.getElementById("status");
@@ -138,14 +138,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // AI 선택에 따른 UI 변경
   aiProvider.addEventListener("change", () => {
-    if(aiProvider.value === "ollama") {
-      apiUrlInput.value = "http://localhost:11434";
-      ollamaModels.style.display = "";
-      deepseekModels.style.display = "none";
-    } else {
-      apiUrlInput.value = "4303dcdfb7c04d54829c32d876609a9f.1eYtBkd3bgIfHS4mK62pR6D0"; // DeepSeek Key
+    if(aiProvider.value === "gemini") {
+      apiUrlInput.value = "AIzaSyDicAn3z7wltjXQBpt812RQmWE3RSfmp0o"; // Gemini Key
+      geminiModels.style.display = "";
       ollamaModels.style.display = "none";
-      deepseekModels.style.display = "";
+    } else {
+      apiUrlInput.value = "http://localhost:11434"; // Ollama URL
+      geminiModels.style.display = "none";
+      ollamaModels.style.display = "";
     }
   });
 
@@ -153,7 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnSummarize.addEventListener("click", async () => {
     const config = apiUrlInput.value.trim();
     if(!config) {
-      alert("설정(서버 주소 혹은 API 키)을 확인해주세요.");
+      alert("설정(API Key 혹은 서버 주소)을 확인해주세요.");
       apiUrlInput.focus();
       return;
     }
@@ -166,10 +166,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       let response;
-      if(aiProvider.value === "ollama") {
-        response = await callOllamaAPI(config, textToSummarize, promptType.value);
+      if(aiProvider.value === "gemini") {
+        response = await callGeminiAPI(config, textToSummarize, promptType.value);
       } else {
-        response = await callDeepSeekAPI(config, textToSummarize, promptType.value);
+        response = await callOllamaAPI(config, textToSummarize, promptType.value);
       }
       
       // Parse Ollama's response
@@ -231,35 +231,31 @@ document.addEventListener("DOMContentLoaded", () => {
     return data.response;
   }
 
-  async function callDeepSeekAPI(apiKey, text, model) {
-    // DeepSeek API 규사 (OpenAI 호환) + CORS 우회를 위해 프록시 사용
-    const apiUrl = "https://corsproxy.io/?https://api.deepseek.com/chat/completions";
+  async function callGeminiAPI(apiKey, text, model) {
+    // Gemini API v1beta 엔드포인트
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const requestBody = {
-      model: model,
-      messages: [
-        { role: "system", content: "당신은 전문적인 회의록 요약 AI 비서입니다. 주어진 회의 녹음본을 분석하여 <summary>, <schedule>, <action_items> 태그 형식으로 요약해주세요." },
-        { role: "user", content: `다음 회의록을 요약해주세요:\n\n${text}` }
-      ],
-      stream: false
+      contents: [{
+        parts: [{ text: `당신은 전문적인 회의록 요약 AI 비서입니다. 주어진 회의 녹음본을 분석하여 <summary>, <schedule>, <action_items> 태그 형식으로 요약해주세요.\n\n회의록:\n${text}` }]
+      }]
     };
 
     const res = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "Content-Type": "application/json"
       },
       body: JSON.stringify(requestBody)
     });
 
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(`DeepSeek API 에러: ${err.error?.message || res.statusText}`);
+      throw new Error(`Gemini API 에러: ${err.error?.message || res.statusText}`);
     }
 
     const data = await res.json();
-    return data.choices[0].message.content;
+    return data.candidates[0].content.parts[0].text;
   }
 
   // Save to Obsidian (전문 + 요약 모두) - user requested User Vault: 'meeting summary'
