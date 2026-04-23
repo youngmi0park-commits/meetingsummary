@@ -183,21 +183,36 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   async function callGeminiAPI(apiKey, text, model) {
-    const validModel = model || "gemini-pro"; 
-    const systemPrompt = `당신은 전문적인 회의록 요약 AI 비서입니다. 주어진 회의 녹음본을 분석하여 <summary>, <schedule>, <action_items> 태그 형식으로 요약해주세요.`;
-    
-    // 호환성이 가장 좋은 v1beta 버전을 사용합니다.
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${validModel}:generateContent?key=${apiKey}`;
-    
-    const res = await fetch(apiUrl, {
+    // ✅ gemini-pro → gemini-1.5-pro 로 자동 교정 (안정성 확보)
+    const safeModel = (model === "gemini-pro" || !model) ? "gemini-1.5-pro" : model;
+
+    // ✅ Gemini API 엔드포인트 형식 (v1beta)
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${safeModel}:generateContent?key=${apiKey}`;
+
+    const systemPrompt = `당신은 LG전자의 전문적인 회의록 요약 AI 비서입니다.
+주어진 회의 녹음본(STT)을 분석하여 다음 3가지 항목을 XML 태그로 감싸서 반환해주세요.
+<summary>전체 회의 내용 핵심 요약 (3-4줄 이내)</summary>
+<schedule>회의에서 언급된 핵심 일정 및 마감일 정리</schedule>
+<action_items>회의 결과에 따른 할 일 목록 (담당자가 있다면 명시)</action_items>`;
+
+    // ✅ Gemini API 요청 형식 (사용자 제안 generationConfig 반영)
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${systemPrompt}\n\n다음 회의록을 요약해주세요:\n\n${text}` }]
-        }]
+        contents: [
+          {
+            parts: [
+              { text: systemPrompt + "\n\n다음 회의록을 요약해주세요:\n\n" + text }
+            ]
+          }
+        ],
+        generationConfig: {
+          maxOutputTokens: 1500,
+          temperature: 0.3
+        }
       })
     });
 
@@ -207,6 +222,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const data = await res.json();
+    
+    // ✅ Gemini 응답 파싱
     return data.candidates[0].content.parts[0].text;
   }
 
