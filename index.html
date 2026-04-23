@@ -3,113 +3,107 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meeting Dashboard</title>
+  <title>Meeting Dashboard · LG</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="layout">
-    <!-- Header -->
-    <header class="header">
-      <div class="brand">
-        <h1>Meeting Dashboard</h1>
-        <span class="badge">AI Powered</span>
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <h1>Meeting Dashboard</h1>
+      <span class="badge">AI Powered</span>
+    </div>
+    <div class="hdr-right">
+      <div class="fg">
+        <label>Gemini API Key</label>
+        <input type="password" id="apiKey" placeholder="AIzaSy...">
+        <div class="key-hint">무료 키 발급 → <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
       </div>
-      <div class="settings">
-        <div class="input-group">
-          <label for="aiProvider">AI 서비스 선택</label>
-          <select id="aiProvider">
-            <option value="gemini">Gemini (추천 - 무료/빠름)</option>
-            <option value="ollama">Ollama (로컬 AI - 설치 중)</option>
-          </select>
-        </div>
-        <div class="input-group" id="urlGroup">
-          <label for="apiUrl">API Key / Server URL</label>
-          <input type="text" id="apiUrl" value="AIzaSyDicAn3z7wltjXQBpt812RQmWE3RSfmp0o">
-        </div>
-        <div class="input-group">
-          <label for="promptType">Model</label>
-          <select id="promptType">
-            <!-- Gemini Models -->
-            <optgroup label="Gemini AI" id="geminiModels">
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-            </optgroup>
-            <!-- Ollama Models -->
-            <optgroup label="Ollama (Local)" id="ollamaModels" style="display:none;">
-              <option value="llama3">Llama 3</option>
-              <option value="gemma2">Gemma 2</option>
-              <option value="mistral">Mistral</option>
-            </optgroup>
-          </select>
+      <div class="fg">
+        <label>Model (모두 무료)</label>
+        <select id="modelSel">
+          <option value="gemini-2.5-flash">gemini-2.5-flash ★ 추천 (10RPM/500/day)</option>
+          <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (15RPM/1000/day)</option>
+          <option value="gemini-1.5-flash">gemini-1.5-flash (구버전/안정)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- LEFT: Transcript -->
+    <section class="panel">
+      <div class="ph">
+        <h2>Meeting Transcript</h2>
+        <div class="ph-btns">
+          <button id="btnRecord" class="btn btn-red">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            Start Recording
+          </button>
+          <button id="btnClear" class="btn btn-ghost">Clear</button>
         </div>
       </div>
-    </header>
+      <div class="tb">
+        <div class="status" id="status">Ready to record</div>
+        <textarea id="transcript" placeholder="회의 내용이 여기에 실시간으로 기록됩니다...&#10;직접 타이핑하거나 음성 녹음을 사용하세요."></textarea>
+      </div>
+    </section>
 
-    <!-- Main Content -->
-    <main class="main-content">
-      
-      <!-- Left Panel: Recording & Transcript -->
-      <section class="panel transcript-panel">
-        <div class="panel-header">
-          <h2>Meeting Transcript</h2>
-          <div class="controls">
-             <button id="btnRecord" class="btn btn-primary">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-                Start Recording
-             </button>
-             <button id="btnClear" class="btn btn-secondary">Clear</button>
-          </div>
+    <!-- RIGHT: Summary -->
+    <section class="panel">
+      <div class="ph">
+        <h2>AI Summary</h2>
+        <button id="btnSummarize" class="btn btn-outline" disabled>Generate Summary</button>
+      </div>
+      <div class="rb" id="rb">
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          <p>Gemini 분석 중...</p>
         </div>
-        <div class="transcription-container">
-          <div id="status" class="status-indicator">Ready to record</div>
-          <textarea id="transcript" placeholder="회의 내용이 여기에 실시간으로 기록됩니다..."></textarea>
+        <div class="err-box" id="errBox"></div>
+        <div class="empty" id="emptyState">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          <p>녹음 완료 후<br><strong>Generate Summary</strong> 클릭</p>
         </div>
-      </section>
+        <div class="cards" id="cards" style="display:none">
+          <div class="card"><h3>📌 핵심 요약</h3><div class="card-body" id="cSummary"></div></div>
+          <div class="card"><h3>🗓️ 일정 · 마감일</h3><div class="card-body" id="cSchedule"></div></div>
+          <div class="card"><h3>✅ 액션 아이템</h3><div class="card-body" id="cAction"></div></div>
+        </div>
+      </div>
+      <div class="export">
+        <button id="btnObsidian" class="btn btn-ghost" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          Save to Obsidian
+        </button>
+        <button id="btnEmail" class="btn btn-ghost" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copy for Email
+        </button>
+      </div>
+    </section>
+  </main>
+</div>
 
-      <!-- Right Panel: AI Generation & Export -->
-      <section class="panel results-panel">
-        <div class="panel-header">
-          <h2>AI Summary & Actions</h2>
-          <button id="btnSummarize" class="btn btn-primary outline" disabled>
-            Generate Summary
-          </button>
-        </div>
-        
-        <div class="summary-container" id="summaryView">
-          <div class="empty-state">
-            <p>녹음을 완료한 후 <strong>Generate Summary</strong> 버튼을 눌러주세요.</p>
-          </div>
-          <div class="summary-content" style="display: none;">
-            <div class="summary-section">
-              <h3>📌 핵심 요약 (Summary)</h3>
-              <div id="contentSummary" class="content-box"></div>
-            </div>
-            <div class="summary-section">
-              <h3>🗓️ 일정 (Schedule)</h3>
-              <div id="contentSchedule" class="content-box"></div>
-            </div>
-            <div class="summary-section">
-              <h3>✅ 액션 아이템 (Action Items)</h3>
-              <div id="contentActionItems" class="content-box"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="export-controls">
-          <button id="btnObsidian" class="btn btn-danger" disabled>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-            Save to Obsidian
-          </button>
-          <button id="btnEmail" class="btn btn-secondary" disabled>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            Copy for Email
-          </button>
-        </div>
-      </section>
-
-    </main>
-  </div>
-  <script src="app.js"></script>
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
 </body>
 </html>

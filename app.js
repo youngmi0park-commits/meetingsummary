@@ -1,337 +1,304 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // DOM Elements
-  const btnRecord = document.getElementById("btnRecord");
-  const btnClear = document.getElementById("btnClear");
-  const btnSummarize = document.getElementById("btnSummarize");
-  const btnObsidian = document.getElementById("btnObsidian");
-  const btnEmail = document.getElementById("btnEmail");
+(function () {
+  'use strict';
 
-  const aiProvider = document.getElementById("aiProvider");
-  const apiUrlInput = document.getElementById("apiUrl");
-  const geminiModels = document.getElementById("geminiModels");
-  const ollamaModels = document.getElementById("ollamaModels");
-  
-  const promptType = document.getElementById("promptType");
-  const statusEl = document.getElementById("status");
-  const transcriptArea = document.getElementById("transcript");
+  /* ── DOM helpers ── */
+  const $ = id => document.getElementById(id);
 
-  const summaryView = document.getElementById("summaryView");
-  const emptyState = document.querySelector(".empty-state");
-  const summaryContent = document.querySelector(".summary-content");
+  const btnRecord    = $('btnRecord');
+  const btnClear     = $('btnClear');
+  const btnSummarize = $('btnSummarize');
+  const btnObsidian  = $('btnObsidian');
+  const btnEmail     = $('btnEmail');
+  const apiKeyInput  = $('apiKey');
+  const modelSel     = $('modelSel');
+  const statusEl     = $('status');
+  const txArea       = $('transcript');
+  const emptyState   = $('emptyState');
+  const cardsEl      = $('cards');
+  const loadingEl    = $('loading');
+  const errBox       = $('errBox');
 
-  const contentSummary = document.getElementById("contentSummary");
-  const contentSchedule = document.getElementById("contentSchedule");
-  const contentActionItems = document.getElementById("contentActionItems");
-
-  // State
+  /* ── State ── */
   let isRecording = false;
   let recognition = null;
-  let rawText = "";
+  let rawText = '';
+  let saved = { original: '', summary: '', schedule: '', actionItems: '' };
 
-  // Data
-  let meetingData = {
-    original: "",
-    summary: "",
-    schedule: "",
-    actionItems: ""
-  };
-
-  // Load Ollama Server URL
-  const savedUrl = localStorage.getItem("ollama_url");
-  if(savedUrl) apiKeyInput.value = savedUrl;
-
-  apiKeyInput.addEventListener("change", (e) => {
-    localStorage.setItem("ollama_url", e.target.value);
+  /* ── Persist API key ── */
+  apiKeyInput.value = localStorage.getItem('gmk') || '';
+  apiKeyInput.addEventListener('change', () => {
+    localStorage.setItem('gmk', apiKeyInput.value);
   });
 
-  // Web Speech API Setup
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    // User requested Korean logic
-    recognition.lang = "ko-KR";
-
-    recognition.onstart = function() {
-      statusEl.textContent = "Recording...";
-      statusEl.classList.add("recording");
-      btnRecord.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" ry="2"></rect></svg> Stop Recording`;
-      btnRecord.classList.replace("btn-primary", "btn-danger");
-    };
-
-    recognition.onend = function() {
-      if(isRecording) recognition.start(); // Auto-restart if disconnected
-    };
-
-    recognition.onresult = function(event) {
-      let interim = "";
-      let final = "";
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          final += event.results[i][0].transcript + " ";
-        } else {
-          interim += event.results[i][0].transcript;
-        }
-      }
-      
-      // We append final results immediately to the textarea.
-      // But actually, for continuous recording, it's better to just reconstruct it or append carefully.
-      if (final) {
-        rawText += final + "\n";
-        transcriptArea.value = rawText + interim;
-      } else {
-        transcriptArea.value = rawText + interim;
-      }
-
-      transcriptArea.scrollTop = transcriptArea.scrollHeight; // Auto-scroll
-      
-      // ✅ 실시간 버튼 활성화 체크 강화 (5자 이상이면 즉시 활성화)
-      if(transcriptArea.value.trim().length > 5) {
-        btnSummarize.disabled = false;
-      }
-    };
-    
-    recognition.onerror = function(event) {
-      console.error("Speech recognition error", event.error);
-    }
-  } else {
-    statusEl.textContent = "Web Speech API is not supported in this browser.";
+  /* ── Toast notification ── */
+  function toast(msg, type = 'ok') {
+    const el = $('toast');
+    el.textContent = msg;
+    el.className = `toast ${type} on`;
+    setTimeout(() => { el.className = 'toast'; }, 3200);
   }
 
-  // --- Actions ---
+  /* ── Error box ── */
+  function showErr(msg) { errBox.textContent = '⚠ ' + msg; errBox.className = 'err-box on'; }
+  function hideErr()    { errBox.className = 'err-box'; }
 
-  btnRecord.addEventListener("click", () => {
-    if(!isRecording) {
+  /* ── Summarize button sync ── */
+  function syncBtn() {
+    btnSummarize.disabled = txArea.value.trim().length < 10;
+  }
+
+  /* ── Speech Recognition ── */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (SR) {
+    recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'ko-KR';
+
+    recognition.onstart = () => {
+      statusEl.innerHTML = '<span class="dot"></span> 녹음 중...';
+      statusEl.className = 'status rec';
+      btnRecord.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="2"/>
+        </svg> Stop`;
+      btnRecord.className = 'btn btn-rec';
+    };
+
+    recognition.onend = () => {
+      if (isRecording) recognition.start(); // 자동 재시작 (연결 끊김 방지)
+    };
+
+    recognition.onerror = e => {
+      if (e.error !== 'no-speech') toast('음성 오류: ' + e.error, 'err');
+    };
+
+    recognition.onresult = event => {
+      let interim = '', final = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) final += t + ' ';
+        else interim += t;
+      }
+      if (final) rawText += final + '\n';
+      txArea.value = rawText + interim;
+      txArea.scrollTop = txArea.scrollHeight;
+      syncBtn();
+    };
+  } else {
+    statusEl.textContent = 'Chrome에서만 음성 인식이 지원됩니다.';
+    btnRecord.disabled = true;
+  }
+
+  /* ── Record toggle ── */
+  const MIC_ICON = `
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>`;
+
+  btnRecord.addEventListener('click', () => {
+    if (!recognition) return;
+    if (!isRecording) {
       isRecording = true;
       recognition.start();
     } else {
       isRecording = false;
       recognition.stop();
-      statusEl.textContent = "Ready to record";
-      statusEl.classList.remove("recording");
-      btnRecord.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg> Start Recording`;
-      btnRecord.classList.replace("btn-danger", "btn-primary");
+      statusEl.textContent = 'Ready to record';
+      statusEl.className = 'status';
+      btnRecord.innerHTML = MIC_ICON + ' Start Recording';
+      btnRecord.className = 'btn btn-red';
     }
   });
 
-  btnClear.addEventListener("click", () => {
-    if(confirm("정말로 회의록을 지우시겠습니까?")) {
-      rawText = "";
-      transcriptArea.value = "";
-      btnSummarize.disabled = true;
-      btnObsidian.disabled = true;
-      btnEmail.disabled = true;
-      emptyState.style.display = "flex";
-      summaryContent.style.display = "none";
-    }
+  /* ── Clear ── */
+  btnClear.addEventListener('click', () => {
+    if (!confirm('회의록을 모두 지우시겠습니까?')) return;
+    rawText = '';
+    txArea.value = '';
+    saved = { original: '', summary: '', schedule: '', actionItems: '' };
+    emptyState.style.display = 'flex';
+    cardsEl.style.display = 'none';
+    hideErr();
+    btnSummarize.disabled = true;
+    btnObsidian.disabled = true;
+    btnEmail.disabled = true;
   });
 
-  transcriptArea.addEventListener("input", (e) => {
-    rawText = e.target.value;
-    if(rawText.trim().length > 5) {
-      btnSummarize.disabled = false;
-    } else {
-      btnSummarize.disabled = true;
-    }
+  txArea.addEventListener('input', () => {
+    if (!isRecording) rawText = txArea.value;
+    syncBtn();
   });
 
-  // AI 선택에 따른 UI 변경
-  aiProvider.addEventListener("change", () => {
-    if(aiProvider.value === "gemini") {
-      apiUrlInput.value = "AIzaSyDicAn3z7wltjXQBpt812RQmWE3RSfmp0o"; // Gemini Key
-      geminiModels.style.display = "";
-      ollamaModels.style.display = "none";
-    } else {
-      apiUrlInput.value = "http://localhost:11434"; // Ollama URL
-      geminiModels.style.display = "none";
-      ollamaModels.style.display = "";
-    }
-  });
+  /* ════════════════════════════════════
+     Gemini API 호출
+     엔드포인트: v1beta + key 쿼리파라미터
+  ════════════════════════════════════ */
+  async function callGemini(apiKey, text, model) {
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  // AI Summarization
-  btnSummarize.addEventListener("click", async () => {
-    const config = apiUrlInput.value.trim();
-    if(!config) {
-      alert("설정(API Key 혹은 서버 주소)을 확인해주세요.");
-      apiUrlInput.focus();
+    const prompt =
+`당신은 LG전자의 전문적인 회의록 요약 AI 비서입니다.
+아래 회의 내용을 분석하고 반드시 아래 3개의 XML 태그만 사용하여 응답하세요.
+다른 텍스트나 마크다운 없이 태그만 출력하세요.
+
+<summary>핵심 요약 (3~5줄, 한국어)</summary>
+<schedule>언급된 일정·마감일. 없으면 → 언급된 일정 없음</schedule>
+<action_items>할 일 목록, 담당자 있으면 [담당자] 표시. 없으면 → 없음</action_items>
+
+--- 회의록 ---
+${text}`;
+
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 2048 }
+        })
+      });
+    } catch (netErr) {
+      throw new Error(
+        `네트워크 연결 오류\n${netErr.message}\n\n→ 인터넷 연결을 확인하세요.\n→ Chrome 브라우저를 사용하세요.`
+      );
+    }
+
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try { detail = (await res.json())?.error?.message || detail; } catch (_) {}
+
+      const guide = {
+        400: `잘못된 요청 (400)\n모델명 확인: ${model}`,
+        403: `API 키 오류 (403)\n키가 없거나 잘못됨\n→ aistudio.google.com/apikey 에서 확인`,
+        404: `모델을 찾을 수 없음 (404)\n다른 모델을 선택해보세요`,
+        429: `요청 한도 초과 (429)\n무료 한도: 10RPM / 500/day\n→ 1분 후 다시 시도하세요`
+      };
+      throw new Error((guide[res.status] || '') + '\n\n원문: ' + detail);
+    }
+
+    const json = await res.json();
+    const content = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!content) throw new Error('Gemini 응답이 비어있습니다.\n다시 시도해주세요.');
+    return content;
+  }
+
+  /* ── Generate Summary ── */
+  btnSummarize.addEventListener('click', async () => {
+    const key = apiKeyInput.value.trim();
+    if (!key) {
+      toast('API 키를 먼저 입력하세요.', 'err');
+      apiKeyInput.focus();
       return;
     }
 
-    const textToSummarize = transcriptArea.value.trim();
-    meetingData.original = textToSummarize;
+    const text = txArea.value.trim();
+    if (!text) return;
+    saved.original = text;
 
-    btnSummarize.innerText = "Generating...";
+    hideErr();
     btnSummarize.disabled = true;
+    btnSummarize.textContent = '분석 중...';
+    loadingEl.className = 'loading on';
+    emptyState.style.display = 'none';
+    cardsEl.style.display = 'none';
 
     try {
-      let response;
-      if(aiProvider.value === "gemini") {
-        response = await callGeminiAPI(config, textToSummarize, promptType.value);
-      } else {
-        response = await callOllamaAPI(config, textToSummarize, promptType.value);
-      }
-      
-      // Parse Ollama's response
-      const summaryMatch = response.match(/<summary>([\s\S]*?)<\/summary>/);
-      const scheduleMatch = response.match(/<schedule>([\s\S]*?)<\/schedule>/);
-      const actionMatch = response.match(/<action_items>([\s\S]*?)<\/action_items>/);
+      const raw = await callGemini(key, text, modelSel.value);
+      console.log('[Gemini response]', raw);
 
-      if (!summaryMatch) {
-        console.error("파싱 실패. Ollama 응답 원문:", response);
-        meetingData.summary = response; // raw 응답이라도 보여주기
-      } else {
-        meetingData.summary = summaryMatch[1].trim();
-      }
+      const extract = tag => {
+        const m = raw.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
+        return m ? m[1].trim() : null;
+      };
 
-      meetingData.schedule = scheduleMatch ? scheduleMatch[1].trim() : "일정을 추출하지 못했습니다.";
-      meetingData.actionItems = actionMatch ? actionMatch[1].trim() : "액션 아이템을 추출하지 못했습니다.";
+      saved.summary     = extract('summary')      || raw; // XML 파싱 실패 시 원문 표시
+      saved.schedule    = extract('schedule')     || '언급된 일정 없음';
+      saved.actionItems = extract('action_items') || '없음';
 
-      contentSummary.innerText = meetingData.summary;
-      contentSchedule.innerText = meetingData.schedule;
-      contentActionItems.innerText = meetingData.actionItems;
+      $('cSummary').textContent  = saved.summary;
+      $('cSchedule').textContent = saved.schedule;
+      $('cAction').textContent   = saved.actionItems;
 
-      emptyState.style.display = "none";
-      summaryContent.style.display = "flex";
-      
+      cardsEl.style.display = 'flex';
       btnObsidian.disabled = false;
       btnEmail.disabled = false;
+      toast('요약 완료 ✓', 'ok');
 
     } catch (e) {
-      alert("API Error: " + e.message);
+      console.error('[API Error]', e);
+      showErr(e.message);
+      emptyState.style.display = 'flex';
     } finally {
-      btnSummarize.innerText = "Generate Summary";
-      // disabled 복구는 transcriptArea 내용 기준으로
-      btnSummarize.disabled = transcriptArea.value.trim().length <= 5;
+      loadingEl.className = 'loading';
+      btnSummarize.textContent = 'Generate Summary';
+      btnSummarize.disabled = false;
     }
   });
 
-  async function callOllamaAPI(baseUrl, text, model) {
-    const apiUrl = `${baseUrl}/api/generate`;
-    
-    const requestBody = {
-      model: model,
-      prompt: `당신은 전문적인 회의록 요약 AI 비서입니다. 주어진 회의 녹음본을 분석하여 <summary>, <schedule>, <action_items> 태그 형식으로 요약해주세요.\n\n회의록:\n${text}`,
-      stream: false
-    };
-
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!res.ok) {
-      throw new Error(`Ollama 서버 연결 실패: ${res.statusText}. Ollama가 실행 중인지, 혹은 CORS 설정이 되어 있는지 확인하세요.`);
-    }
-
-    const data = await res.json();
-    return data.response;
-  }
-
-  async function callGeminiAPI(apiKey, text, model) {
-    // Gemini API v1beta 엔드포인트
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    
-    const requestBody = {
-      contents: [{
-        parts: [{ text: `당신은 전문적인 회의록 요약 AI 비서입니다. 주어진 회의 녹음본을 분석하여 <summary>, <schedule>, <action_items> 태그 형식으로 요약해주세요.\n\n회의록:\n${text}` }]
-      }]
-    };
-
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(`Gemini API 에러: ${err.error?.message || res.statusText}`);
-    }
-
-    const data = await res.json();
-    return data.candidates[0].content.parts[0].text;
-  }
-
-  // Save to Obsidian (전문 + 요약 모두) - user requested User Vault: 'meeting summary'
-  // Actually user said: Vault name: "meeting summary 라고 이름 지정할게 신규생성해줘"
-  btnObsidian.addEventListener("click", () => {
+  /* ── Save to Obsidian ── */
+  btnObsidian.addEventListener('click', () => {
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '');
-    const fileName = `Meeting_${dateStr}_${timeStr}`;
+    const d = now.toISOString().split('T')[0];
+    const t = now.toTimeString().split(' ')[0].replace(/:/g, '');
+    const body = [
+      `# 회의록 — ${d}`,
+      '',
+      '## 📌 핵심 요약',
+      saved.summary,
+      '',
+      '## 🗓️ 일정',
+      saved.schedule,
+      '',
+      '## ✅ 액션 아이템',
+      saved.actionItems,
+      '',
+      '---',
+      '',
+      '## 🎙️ 원본 (STT)',
+      saved.original
+    ].join('\n');
 
-    const vaultName = encodeURIComponent("meeting summary"); // The vault name requested
-    
-    // 원본 제외하고 요약만
-    const obsContent = `
-# 회의 일자: ${dateStr}
-## 📌 핵심 요약
-${meetingData.summary}
-## 🗓️ 일정
-${meetingData.schedule}
-## ✅ 액션 아이템
-${meetingData.actionItems}
-    `.trim();
+    const uri =
+      `obsidian://new?vault=${encodeURIComponent('meeting summary')}` +
+      `&name=${encodeURIComponent('Meeting_' + d + '_' + t)}` +
+      `&content=${encodeURIComponent(body.trim())}`;
 
-    const encodedFileName = encodeURIComponent(fileName);
-    const encodedContent = encodeURIComponent(obsContent);
-
-    // Obsidian URI format: obsidian://new?vault=my-vault&name=my-note&content=my-content
-    const uri = `obsidian://new?vault=${vaultName}&name=${encodedFileName}&content=${encodedContent}`;
-    window.location.href = uri;
+    window.open(uri, '_self');
+    toast('Obsidian으로 전송했습니다.', 'ok');
   });
 
-  // Copy for Email (요약만)
-  btnEmail.addEventListener("click", async () => {
-    const emailHtml = `
-<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-  <h2>회의 요약 공유</h2>
-  
-  <h3 style="color: #ea1917;">📌 핵심 요약</h3>
-  <p>${meetingData.summary.replace(/\n/g, '<br>')}</p>
-  
-  <h3 style="color: #ea1917;">🗓️ 일정</h3>
-  <p>${meetingData.schedule.replace(/\n/g, '<br>')}</p>
-  
-  <h3 style="color: #ea1917;">✅ 액션 아이템</h3>
-  <p>${meetingData.actionItems.replace(/\n/g, '<br>')}</p>
-</div>
-    `.trim();
-
-    const emailText = `
-[회의 요약 공유]
-
-📌 핵심 요약
-${meetingData.summary}
-
-🗓️ 일정
-${meetingData.schedule}
-
-✅ 액션 아이템
-${meetingData.actionItems}
-    `.trim();
+  /* ── Copy for Email ── */
+  btnEmail.addEventListener('click', async () => {
+    const plain =
+      `[회의 요약]\n\n📌 핵심 요약\n${saved.summary}\n\n🗓️ 일정\n${saved.schedule}\n\n✅ 액션 아이템\n${saved.actionItems}`;
+    const html =
+      `<div style="font-family:Arial,sans-serif;color:#333;line-height:1.6">` +
+      `<h2>회의 요약</h2>` +
+      `<h3 style="color:#ea1917">📌 핵심 요약</h3><p>${saved.summary.replace(/\n/g, '<br>')}</p>` +
+      `<h3 style="color:#ea1917">🗓️ 일정</h3><p>${saved.schedule.replace(/\n/g, '<br>')}</p>` +
+      `<h3 style="color:#ea1917">✅ 액션 아이템</h3><p>${saved.actionItems.replace(/\n/g, '<br>')}</p>` +
+      `</div>`;
 
     try {
-      // Create a ClipboardItem with both HTML and plain text form so paste works well in Outlook
-      const typeText = new Blob([emailText], { type: "text/plain" });
-      const typeHtml = new Blob([emailHtml], { type: "text/html" });
-      
-      const clipboardItem = new ClipboardItem({
-        "text/plain": typeText,
-        "text/html": typeHtml
-      });
-      await navigator.clipboard.write([clipboardItem]);
-      alert("이메일 형식으로 클립보드에 복사되었습니다. Outlook에 붙여넣기 해보세요!");
-    } catch(err) {
-      // Fallback for older browsers
-      await navigator.clipboard.writeText(emailText);
-      alert("텍스트 형식으로 복사되었습니다!");
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/plain': new Blob([plain], { type: 'text/plain' }),
+          'text/html':  new Blob([html],  { type: 'text/html' })
+        })
+      ]);
+      toast('클립보드 복사 완료 (Outlook 붙여넣기 가능)', 'ok');
+    } catch {
+      await navigator.clipboard.writeText(plain);
+      toast('텍스트로 복사됨', 'ok');
     }
   });
-});
+
+})();
