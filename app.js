@@ -185,11 +185,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   async function callGeminiAPI(apiKey, text, model) {
-    // 모든 계정에서 가장 안정적으로 작동하는 gemini-pro를 기본 모델로 사용합니다.
-    const finalModel = model || "gemini-pro"; 
+    // 최신 표준 모델명인 gemini-1.5-flash를 사용합니다.
+    const finalModel = model || "gemini-1.5-flash"; 
     
-    // ✅ Gemini API 엔드포인트 형식 (v1beta)
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${finalModel}:generateContent?key=${apiKey}`;
+    // ✅ 정식 v1 API 엔드포인트를 사용합니다. (가장 안정적)
+    const endpoint = `https://generativelanguage.googleapis.com/v1/models/${finalModel}:generateContent?key=${apiKey}`;
 
     const systemPrompt = `당신은 LG전자의 전문적인 회의록 요약 AI 비서입니다.
 주어진 회의 녹음본(STT)을 분석하여 다음 3가지 항목을 XML 태그로 감싸서 반환해주세요.
