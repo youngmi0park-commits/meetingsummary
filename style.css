@@ -257,3 +257,14 @@ main {
   .panel + .panel { border-left: none; border-top: 1px solid var(--border); }
   header { flex-direction: column; align-items: flex-start; }
 }
+
+/* ── Quota badge ── */
+.quota-badge {
+  font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace;
+  padding: 5px 10px; border-radius: 20px; white-space: nowrap;
+  align-self: flex-end; border: 1px solid transparent; transition: all .3s;
+}
+.quota-ok   { background: #0d2018; color: #34d399; border-color: #1a4030; }
+.quota-warn { background: #2a1f00; color: #fbbf24; border-color: #4a3800; }
+.quota-over { background: #2a0a0a; color: #ff7070; border-color: #5a1a1a;
+              animation: pulse-red 1.5s ease-in-out infinite; }
