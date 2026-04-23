@@ -81,7 +81,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       transcriptArea.scrollTop = transcriptArea.scrollHeight; // Auto-scroll
-      if(transcriptArea.value.trim().length > 10) {
+      
+      // ✅ 실시간 버튼 활성화 체크 강화 (5자 이상이면 즉시 활성화)
+      if(transcriptArea.value.trim().length > 5) {
         btnSummarize.disabled = false;
       }
     };
