@@ -183,11 +183,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   async function callGeminiAPI(apiKey, text, model) {
-    // 사용자가 명시적으로 선택한 모델이 있으면 그대로 사용, 없으면 gemini-1.5-pro를 기본값으로 함
-    const safeModel = model || "gemini-1.5-pro"; 
+    // 무료인 gemini-1.5-flash를 기본 모델로 사용합니다.
+    const safeModel = model || "gemini-1.5-flash"; 
     
     // 만약 예전 방식의 'gemini-pro'가 선택되었다면 최신으로 교정
-    const finalModel = safeModel === "gemini-pro" ? "gemini-1.5-pro" : safeModel;
+    const finalModel = safeModel === "gemini-pro" ? "gemini-1.5-flash" : safeModel;
 
     // ✅ Gemini API 엔드포인트 형식 (v1beta)
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${finalModel}:generateContent?key=${apiKey}`;
