@@ -232,8 +232,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function callDeepSeekAPI(apiKey, text, model) {
-    // DeepSeek API 규사 (OpenAI 호환)
-    const apiUrl = "https://api.deepseek.com/chat/completions";
+    // DeepSeek API 규사 (OpenAI 호환) + CORS 우회를 위해 프록시 사용
+    const apiUrl = "https://corsproxy.io/?https://api.deepseek.com/chat/completions";
     
     const requestBody = {
       model: model,
