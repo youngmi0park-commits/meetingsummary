@@ -10,6 +10,7 @@
 <body>
 <div class="app">
 
+  <!-- ── Header ── -->
   <header>
     <div class="brand">
       <h1>Meeting Dashboard</h1>
@@ -19,25 +20,26 @@
       <div class="fg">
         <label>Gemini API Key</label>
         <input type="password" id="apiKey" placeholder="AIzaSy...">
-        <div class="key-hint">무료 키 발급 → <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
+        <div class="key-hint">무료 키 → <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
       </div>
       <div class="fg">
-        <label>Model (모두 무료)</label>
+        <label>Model</label>
         <select id="modelSel">
-          <option value="gemini-2.5-flash">gemini-2.5-flash ★ 추천 (10RPM/250/day)</option>
+          <option value="gemini-2.5-flash">gemini-2.5-flash ★ (10RPM/250/day)</option>
           <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (15RPM/1000/day)</option>
           <option value="gemini-1.5-flash">gemini-1.5-flash (15RPM/1500/day)</option>
         </select>
       </div>
-      <div id="quotaBadge" class="quota-badge quota-ok">오늘 남은 횟수: —</div>
+      <div id="quotaBadge" class="quota-badge quota-ok">남은 횟수: —</div>
     </div>
   </header>
 
   <main>
-    <!-- LEFT: Transcript -->
+
+    <!-- ── LEFT: Transcript ── -->
     <section class="panel">
       <div class="ph">
-        <h2>Meeting Transcript</h2>
+        <h2>🎙️ Meeting Transcript</h2>
         <div class="ph-btns">
           <button id="btnRecord" class="btn btn-red">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -57,50 +59,110 @@
       </div>
     </section>
 
-    <!-- RIGHT: Summary -->
+    <!-- ── RIGHT: Meta + Summary ── -->
     <section class="panel">
       <div class="ph">
-        <h2>AI Summary</h2>
-        <button id="btnSummarize" class="btn btn-outline" disabled>Generate Summary</button>
+        <h2>📋 Meeting Summary</h2>
+        <button id="btnSummarize" class="btn btn-outline" disabled>✨ Generate Summary</button>
       </div>
+
       <div class="rb" id="rb">
         <div class="loading" id="loading">
           <div class="spinner"></div>
           <p>Gemini 분석 중...</p>
         </div>
+
+        <!-- ── 회의 정보 입력 (항상 표시) ── -->
+        <div class="meta-section">
+          <div class="meta-title">회의 정보</div>
+          <div class="meta-grid">
+            <div class="meta-field full">
+              <label>📋 회의명</label>
+              <input type="text" id="mTitle" placeholder="예) Q2 마케팅 전략 회의">
+            </div>
+            <div class="meta-field">
+              <label>📅 일시</label>
+              <input type="text" id="mDate" placeholder="2025-01-23 14:00">
+            </div>
+            <div class="meta-field">
+              <label>📍 장소</label>
+              <input type="text" id="mLocation" placeholder="예) 회의실 A / Zoom">
+            </div>
+            <div class="meta-field full">
+              <label>👥 참석자</label>
+              <input type="text" id="mAttendees" placeholder="예) 김영업 팀장, 박마케팅, 이기획 (쉼표로 구분)">
+            </div>
+            <div class="meta-field full">
+              <label>📌 아젠다</label>
+              <input type="text" id="mAgenda" placeholder="예) Q2 캠페인 성과 리뷰 / 예산 재배분 논의 / 다음 분기 계획">
+            </div>
+            <div class="meta-field full">
+              <label>🏷️ 해시태그</label>
+              <input type="text" id="mTags" placeholder="예) #마케팅 #Q2 #전략 #LG전자">
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 에러 ── -->
         <div class="err-box" id="errBox"></div>
+
+        <!-- ── Empty state ── -->
         <div class="empty" id="emptyState">
-          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
             <line x1="16" y1="13" x2="8" y2="13"/>
             <line x1="16" y1="17" x2="8" y2="17"/>
           </svg>
-          <p>녹음 완료 후<br><strong>Generate Summary</strong> 클릭</p>
+          <p>녹음 또는 텍스트 입력 후<br><strong>✨ Generate Summary</strong> 클릭</p>
         </div>
+
+        <!-- ── AI 결과 카드 ── -->
         <div class="cards" id="cards" style="display:none">
-          <div class="card"><h3>📌 핵심 요약</h3><div class="card-body" id="cSummary"></div></div>
-          <div class="card"><h3>🗓️ 일정 · 마감일</h3><div class="card-body" id="cSchedule"></div></div>
-          <div class="card"><h3>✅ 액션 아이템</h3><div class="card-body" id="cAction"></div></div>
+          <div class="card card-summary">
+            <h3><span class="card-icon">📝</span> 핵심 요약</h3>
+            <div class="card-body" id="cSummary"></div>
+          </div>
+          <div class="card-row">
+            <div class="card card-schedule">
+              <h3><span class="card-icon">🗓️</span> 일정 · 마감일</h3>
+              <div class="card-body" id="cSchedule"></div>
+            </div>
+            <div class="card card-action">
+              <h3><span class="card-icon">✅</span> 액션 아이템</h3>
+              <div class="card-body" id="cAction"></div>
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- ── Export ── -->
       <div class="export">
-        <button id="btnObsidian" class="btn btn-ghost" disabled>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button id="btnObsidian" class="btn btn-export-obs" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/>
             <polyline points="14 2 14 8 20 8"/>
           </svg>
-          Save to Obsidian
+          Obsidian 저장
         </button>
-        <button id="btnEmail" class="btn btn-ghost" disabled>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2"/>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        <button id="btnEmail" class="btn btn-export-mail" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
           </svg>
-          Copy for Email
+          Outlook 복사
+        </button>
+        <button id="btnMd" class="btn btn-export-md" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          .md 다운로드
         </button>
       </div>
     </section>
+
   </main>
 </div>
 
