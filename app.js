@@ -369,23 +369,81 @@ ${text}`;
   /* ── Obsidian ── */
   btnObsidian.addEventListener('click', () => {
     const now = new Date();
-    const d = now.toISOString().split('T')[0];
-    const t = now.toTimeString().split(' ')[0].replace(/:/g, '');
-    const body = [
+    const d   = now.toISOString().split('T')[0];
+    const t   = now.toTimeString().split(' ')[0].replace(/:/g, '');
+    const fileName = 'Meeting_' + d + '_' + t;
+
+    // ✅ 전체 내용 (.md 형식)
+    const fullBody = [
       `# 회의록 — ${d}`, '',
       '## 📌 핵심 요약', saved.summary, '',
       '## 🗓️ 일정', saved.schedule, '',
       '## ✅ 액션 아이템', saved.actionItems, '',
       '---', '', '## 🎙️ 원본 (STT)', saved.original
-    ].join('\n');
+    ].join('\n').trim();
+
+    // ✅ 요약만 (URI용 — 원본 제외)
+    const summaryBody = [
+      `# 회의록 — ${d}`, '',
+      '## 📌 핵심 요약', saved.summary, '',
+      '## 🗓️ 일정', saved.schedule, '',
+      '## ✅ 액션 아이템', saved.actionItems
+    ].join('\n').trim();
 
     const uri =
       `obsidian://new?vault=${encodeURIComponent('meeting summary')}` +
-      `&name=${encodeURIComponent('Meeting_' + d + '_' + t)}` +
-      `&content=${encodeURIComponent(body.trim())}`;
-    window.open(uri, '_self');
-    toast('Obsidian으로 전송했습니다.', 'ok');
+      `&name=${encodeURIComponent(fileName)}` +
+      `&content=${encodeURIComponent(summaryBody)}`;
+
+    const URI_LIMIT = 8000; // Obsidian 실질적 URI 한도
+
+    // ✅ URI 길이 초과 시 → .md 파일 다운로드 fallback
+    if (uri.length > URI_LIMIT) {
+      const ok = confirm(
+        '회의록이 너무 길어 Obsidian URI 한도를 초과합니다.\n\n' +
+        '.md 파일로 다운로드 후 Obsidian Vault 폴더에 직접 넣어주세요.\n\n' +
+        '다운로드 하시겠습니까?'
+      );
+      if (ok) downloadMd(fileName, fullBody);
+      return;
+    }
+
+    // ✅ window.location.href 사용 (팝업 차단 우회)
+    // visibilitychange로 Obsidian 실행 여부 감지
+    let launched = false;
+    const onBlur = () => { launched = true; };
+    window.addEventListener('blur', onBlur);
+
+    window.location.href = uri;
+
+    // 2초 후에도 blur 없으면 → Obsidian 미설치로 판단
+    setTimeout(() => {
+      window.removeEventListener('blur', onBlur);
+      if (!launched) {
+        const ok = confirm(
+          'Obsidian이 설치되지 않았거나 실행되지 않았습니다.\n\n' +
+          '.md 파일로 다운로드 하시겠습니까?'
+        );
+        if (ok) downloadMd(fileName, fullBody);
+      } else {
+        toast('Obsidian으로 전송했습니다. ✓', 'ok');
+      }
+    }, 2000);
   });
+
+  /* ── .md 파일 다운로드 (Obsidian fallback) ── */
+  function downloadMd(fileName, content) {
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = fileName + '.md';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('.md 파일 다운로드 완료 — Vault 폴더에 넣어주세요.', 'ok');
+  }
 
   /* ── Email Copy ── */
   btnEmail.addEventListener('click', async () => {
